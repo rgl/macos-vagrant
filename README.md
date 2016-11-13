@@ -81,6 +81,16 @@ sudo launchctl load -w /System/Library/LaunchDaemons/ssh.plist
 ```
 
 
+Create the `vagrant` group (some vagrant commands, e.g. `rsync`, expect to find it):
+
+```bash
+VAGRANT_GID=$(id -u vagrant)
+sudo dscl . -create /Groups/vagrant
+sudo dscl . -create /Groups/vagrant PrimaryGroupID $VAGRANT_GID
+sudo dscl . -create /Users/vagrant PrimaryGroupID $VAGRANT_GID
+```
+
+
 Configure SSH to accept the unsecure vagrant SSH public key:
 
 NB vagrant will replace the insecure key on the first run.
@@ -111,7 +121,7 @@ Install all the Updates that might be available at the App Store.
 Zero the free disk space -- for better compression of the box file:
 
 ```bash
-sudo dd if=/dev/zero of=/EMPTY bs=1m || true ; sudo rm -f /EMPTY
+sudo dd if=/dev/zero of=/EMPTY bs=1m || true; sudo sync; sudo rm -f /EMPTY; sudo sync
 ```
 
 
@@ -123,8 +133,10 @@ Create the vagrant box template file:
 ```bash
 cat >Vagrantfile.template <<'EOF'
 Vagrant.configure("2") do |config|
-  config.vm.synced_folder ".", "/vagrant", :disabled => true
+  config.vm.synced_folder ".", "/vagrant", type: "rsync", rsync__exclude: [".vagrant/", ".git/", "*.box"]
   config.vm.provider "virtualbox" do |vb|
+    vb.check_guest_additions = false
+    vb.functional_vboxsf = false
     vb.customize ["modifyvm", :id, "--cpuidset", "00000001", "000306a9", "04100800", "7fbae3ff", "bfebfbff"]
     vb.customize ["setextradata", :id, "VBoxInternal/Devices/efi/0/Config/DmiSystemProduct", "MacBookPro11,3"]
     vb.customize ["setextradata", :id, "VBoxInternal/Devices/efi/0/Config/DmiSystemVersion", "1.0"]
